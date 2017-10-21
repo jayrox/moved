@@ -13,10 +13,12 @@ import (
 
 var (
 	flagdebug      = flag.Bool("d", true, "show debug output")
-	flagdir        = flag.String("dir", "cwd", "directory to scan. default is current working directory (cwd)")
-	flagtarget     = flag.String("tar", "cwd", "directory to extract to. default is current working directory (cwd)")
+	flagdir        = flag.String("src", "cwd", "directory to scan. default is current working directory (cwd)")
+	flagtarget     = flag.String("dst", "cwd", "directory to extract to. default is current working directory (cwd)")
 	flagminsize    = flag.Int64("min", 200000000, "minimum file size to include in scan. default is 200MB") // 3MB
 	flagmovesample = flag.Bool("ms", false, "move sample files")
+	flagTest       = flag.Bool("test", false, "test move but don't actually move files.")
+	flagNoLogo     = flag.Bool("nologo", false, "hide the logo, useful for automation logging.")
 	rf             mvdFlags
 	moveext        = []string{
 		".mkv", ".mp4", ".avi", ".m4v", ".divx",
@@ -110,17 +112,27 @@ func moveable(file string) bool {
 	sizeOne := fileSize(file)
 	fmt.Println(sizeOne)
 
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(500 * time.Millisecond)
 	sizeTwo := fileSize(file)
 	fmt.Println(sizeTwo)
 
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(600 * time.Millisecond)
 	sizeThree := fileSize(file)
 	fmt.Println(sizeThree)
 
-	if sizeOne == sizeTwo && sizeOne == sizeThree {
+	time.Sleep(700 * time.Millisecond)
+	sizeFour := fileSize(file)
+	fmt.Println(sizeFour)
+
+	time.Sleep(1000 * time.Millisecond)
+	sizeFive := fileSize(file)
+	fmt.Println(sizeFive)
+
+	if sizeOne == sizeTwo && sizeOne == sizeThree && sizeOne == sizeFour && sizeOne == sizeFive {
 		return true
 	}
+
+	fmt.Println("Skipping: File sizes don't match.")
 	return false
 }
 
@@ -146,11 +158,32 @@ func move(file, destpath string) (ok bool) {
 	d := path.Dir(destpath)
 
 	file = strings.Replace(file, "\\", "/", -1)
-	target := d + "/" + path.Base(file)
+
+	basename := filepath.Base(file)
+	fp := filepath.Dir(file)
+	name := filepath.Base(fp)
+
+	// Prevents /Media/Movies/Movies/
+	if filepath.Base(d) == name {
+		name = ""
+	}
+
+	// Make target directory
+	err := os.Mkdir(filepath.Join(d, name), os.ModePerm)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	target := filepath.Join(d, name, basename)
 
 	printDebug("Moving: %s\nDestination: %s\n", file, target)
 
-	err := os.Rename(file, target)
+	if *flagTest {
+		printDebug("Test mode enabled. Exiting before move.%s\n", "")
+		return true
+	}
+
+	err = os.Rename(file, target)
 	if err != nil {
 		fmt.Println(err.Error())
 		return false
@@ -186,6 +219,9 @@ type mvdFlags struct {
 
 // Print the logo, obviously
 func printLogo() {
+	if *flagNoLogo {
+		return
+	}
 	fmt.Println("███╗   ███╗██╗   ██╗██████╗")
 	fmt.Println("████╗ ████║██║   ██║██╔══██╗")
 	fmt.Println("██╔████╔██║██║   ██║██║  ██║")
